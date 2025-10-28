@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "ESP-IDF",
+            "compilerPath": "C:/Espressif/tools/riscv32-esp-elf/esp-14.2.0_20241119/riscv32-esp-elf/bin/riscv32-esp-elf-gcc.exe",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/Espressif/frameworks/esp-idf-v5.5.1/components/**"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64",
+            "configurationProvider": "esp-idf"
+        }
+    ],
+    "version": 4
+}

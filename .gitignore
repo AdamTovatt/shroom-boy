@@ -1,0 +1,18 @@
+# ESP-IDF build artifacts
+/build/
+sdkconfig
+sdkconfig.old
+
+# VS Code
+*.code-workspace
+
+# Python / IDF cache
+__pycache__/
+*.pyc
+.env/
+.venv/
+.local/
+.cache/
+
+# IDF tools
+dependencies.lock
