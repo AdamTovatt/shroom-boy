@@ -1,64 +1,50 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
-#include "esp_adc/adc_oneshot.h"
 #include "esp_log.h"
+#include <stdio.h>
 
-#define LED_GPIO 7
-#define BUTTON_GPIO 10
-#define SOLAR_ADC_GPIO 4
-#define ADC_CHANNEL ADC_CHANNEL_4 // GPIO4 = ADC1_CH3 on ESP32-C3
+#include "led.h"
+#include "button.h"
+#include "solar.h"
 
 void app_main(void)
 {
-    gpio_config_t io_conf_led = {
-        .pin_bit_mask = (1ULL << LED_GPIO),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .pull_up_en = GPIO_PULLUP_DISABLE};
-    gpio_config(&io_conf_led);
+    // Initialize all components
+    led_init();
+    button_init();
+    solar_init();
 
-    gpio_config_t io_conf_button = {
-        .pin_bit_mask = (1ULL << BUTTON_GPIO),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE};
-    gpio_config(&io_conf_button);
-
-    adc_oneshot_unit_handle_t adc_handle;
-    adc_oneshot_unit_init_cfg_t init_config = {
-        .unit_id = ADC_UNIT_1};
-    adc_oneshot_new_unit(&init_config, &adc_handle);
-
-    adc_oneshot_chan_cfg_t config = {
-        .atten = ADC_ATTEN_DB_12,
-        .bitwidth = ADC_BITWIDTH_DEFAULT};
-    adc_oneshot_config_channel(adc_handle, ADC_CHANNEL, &config);
+    bool strobe_state = false;
 
     while (1)
     {
-        int button_state = gpio_get_level(BUTTON_GPIO);
+        bool is_pressed = button_is_pressed();
+        int solar_percent = solar_read_percentage();
 
-        int sum = 0;
-        for (int i = 0; i < 32; i++)
+        printf("Button:%s  Solar:%d%%\n", is_pressed ? "Pressed" : "Released", solar_percent);
+
+        // LED behavior based on light level
+        if (solar_percent >= 100)
         {
-            int sample = 0;
-            adc_oneshot_read(adc_handle, ADC_CHANNEL, &sample);
-            sum += sample;
+            // 100%: Strobe mode - flash rapidly at max brightness
+            strobe_state = !strobe_state;
+            led_set_brightness(strobe_state ? 100 : 0);
+            vTaskDelay(pdMS_TO_TICKS(40)); // 40ms interval
         }
-        int adc_avg = sum / 32;
-
-        int percent = adc_avg * 100 / 2500;
-        if (percent > 100)
-            percent = 100;
-        if (percent < 0)
-            percent = 0;
-
-        printf("Button:%s  Solar:%d%%\n", button_state == 0 ? "Pressed" : "Released", percent);
-
-        gpio_set_level(LED_GPIO, button_state == 0 ? 1 : 0);
-
-        vTaskDelay(pdMS_TO_TICKS(500));
+        else if (solar_percent >= 50)
+        {
+            // 50-99%: LED off
+            led_set_brightness(0);
+            vTaskDelay(pdMS_TO_TICKS(30));
+        }
+        else
+        {
+            // 0-50%: LED brightness scales with light level (minimum 3%)
+            int brightness = solar_percent;
+            if (brightness < 3)
+                brightness = 3;
+            led_set_brightness(brightness);
+            vTaskDelay(pdMS_TO_TICKS(30));
+        }
     }
 }
